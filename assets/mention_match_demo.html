@@ -1,0 +1,8 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>资产匹配文字原型</title>
+<style>body{background:#17191c;color:#eee;font:15px "Microsoft YaHei";padding:32px}.box{max-width:760px;margin:auto;background:#24272b;border:1px solid #40464c;border-radius:12px;padding:20px}h2{margin-top:0}.editor{background:#191b1e;border:1px solid #69727b;border-radius:8px;min-height:180px;padding:16px;line-height:2;outline:none;white-space:pre-wrap}.tip{color:#aeb8c2;margin:10px 0 18px}.plain{color:#eef2f5}.binding{color:#eef2f5}.binding::selection{background:#55616b}.rule{margin-top:15px;color:#9daab4;font-size:13px}button{margin-top:14px;background:#637fff;color:white;border:0;border-radius:6px;padding:9px 15px}</style>
+<div class="box"><h2>第 13 集 · 镜头脚本</h2><div class="tip">直接在下面编辑。匹配标记只是普通文字：婆婆@婆婆</div>
+<div id="editor" class="editor" contenteditable="true" spellcheck="false">镜头1：婆婆@婆婆端着茶走进许家客厅。
+婆婆@婆婆对江熹@江熹说：“你终于回来了。”</div>
+<button onclick="showValue()">查看生成解析</button><div id="result" class="rule"></div>
+<div class="rule">规则：@右侧是正式资产名；生成分镜时只读取 @ 后的名称。整个区域都是普通文字，不高亮、不弹窗、不使用富文本标签。</div></div>
+<script>function showValue(){let t=document.getElementById('editor').innerText;let names=[...t.matchAll(/@([^\s，。！？：；、]+)/g)].map(x=>x[1]);document.getElementById('result').textContent='本次生成将使用参考资产：'+([...new Set(names)].join('、')||'无')+'。';}</script></html>

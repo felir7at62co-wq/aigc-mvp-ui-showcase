@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>资产生成改版方案 · 提示词提取页移除与卡片化重构</title>
+<style>
+  :root {
+    --bg: #1b1d23; --bg2: #23262e; --bg3: #2c303a; --border: #3a3f4b;
+    --text: #e6e8ee; --muted: #9aa0ae; --accent: #4f7cff; --accent2: #6b93ff;
+    --ok: #3fb96c; --warn: #d9a13b; --err: #d9534f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    line-height: 1.75; font-size: 15px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 40px 32px 80px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  h2 {
+    font-size: 20px; margin: 48px 0 16px; padding-left: 12px;
+    border-left: 4px solid var(--accent);
+  }
+  h3 { font-size: 16px; margin: 28px 0 10px; color: var(--accent2); }
+  .subtitle { color: var(--muted); margin-bottom: 8px; }
+  .badge {
+    display: inline-block; padding: 2px 12px; border-radius: 999px;
+    font-size: 13px; background: rgba(217,161,59,.15); color: var(--warn);
+    border: 1px solid var(--warn); margin-left: 8px; vertical-align: middle;
+  }
+  .card-box {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px 24px; margin: 16px 0;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+  th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--bg3); white-space: nowrap; }
+  code {
+    background: var(--bg3); padding: 1px 6px; border-radius: 4px;
+    font-family: Consolas, monospace; font-size: 13px; color: #ffd479;
+  }
+  .shot { max-width: 100%; border: 1px solid var(--border); border-radius: 8px; margin: 8px 0; }
+  .shot-row { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+  .shot-row figure { margin: 0; flex: 1 1 320px; }
+  figcaption { color: var(--muted); font-size: 13px; margin-top: 6px; }
+  ul, ol { padding-left: 22px; }
+  li { margin: 4px 0; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .err { color: var(--err); }
+  .muted { color: var(--muted); }
+  .flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
+  .flow .node {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 14px; font-size: 14px;
+  }
+  .flow .arrow { color: var(--accent); font-size: 18px; }
+
+  /* ---- 卡片 mockup ---- */
+  .mock-page {
+    background: #14161b; border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px; margin: 16px 0;
+  }
+  .mock-toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .mock-btn {
+    font-size: 13px; padding: 6px 14px; border-radius: 6px;
+    background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+  }
+  .mock-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .mock-btn.del { text-decoration: line-through; opacity: .45; position: relative; }
+  .mock-grid { display: flex; gap: 18px; flex-wrap: wrap; }
+  .acard {
+    width: 190px; background: var(--bg2); border: 2px solid var(--border);
+    border-radius: 10px; padding: 8px; position: relative; font-size: 13px;
+  }
+  .acard.selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,124,255,.25); }
+  .acard.failed { border-color: var(--err); }
+  .acard .sel-badge {
+    position: absolute; top: 12px; left: 12px; width: 20px; height: 20px;
+    border-radius: 50%; background: var(--accent); color: #fff; font-size: 13px;
+    display: flex; align-items: center; justify-content: center; z-index: 2;
+  }
+  .acard .del-x {
+    position: absolute; top: 10px; right: 10px; width: 22px; height: 22px;
+    border-radius: 50%; background: var(--err); color: #fff; font-size: 14px;
+    display: flex; align-items: center; justify-content: center; z-index: 2;
+    cursor: pointer;
+  }
+  .acard .img {
+    width: 100%; height: 150px; border-radius: 6px; background: var(--bg3);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: var(--muted); overflow: hidden; position: relative;
+  }
+  .acard .img img { width: 100%; height: 100%; object-fit: cover; }
+  .acard .img .plus { font-size: 30px; line-height: 1; }
+  .acard .img.dashed { border: 2px dashed var(--border); background: transparent; }
+  .acard .meta { padding: 6px 4px 2px; }
+  .acard .meta .name { font-weight: 600; font-size: 14px; }
+  .acard .meta .row { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .acard .meta .prompt {
+    color: var(--muted); font-size: 12px; margin-top: 4px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    border-top: 1px dashed var(--border); padding-top: 4px;
+  }
+  .acard.add {
+    border: 2px dashed var(--border); background: transparent;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 230px; color: var(--muted); cursor: pointer;
+  }
+  .acard.add .plus { font-size: 36px; }
+  .tag {
+    display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 4px;
+    background: var(--bg3); color: var(--muted); margin-right: 4px;
+  }
+  .caption { text-align: center; color: var(--muted); font-size: 13px; margin-top: 8px; }
+  .note {
+    border-left: 3px solid var(--warn); background: rgba(217,161,59,.08);
+    padding: 10px 16px; border-radius: 0 8px 8px 0; margin: 14px 0;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>资产生成改版方案 <span class="badge">待审阅</span></h1>
+<div class="subtitle">提示词提取页移除 · 创建项目自动提取 · 资产生成卡片化重构　|　AIGC Pipeline　|　2026-07-20</div>
+
+<!-- ================= 1 ================= -->
+<h2>1. 需求背景</h2>
+<div class="card-box">
+  <ul>
+    <li><b>删掉「提示词提取」步骤页</b>：用户在程序里创建项目后，程序<b>自动</b>完成角色 / 场景 / 道具的提示词提取，不再需要人工进入专门页面操作。</li>
+    <li><b>资产生成页卡片化</b>：剧本需要的所有资产（包括还没生成图片的）直接以卡片展示在生成结果区。未生成的卡片展示 <b>名称 / 别名 / 出场集数 / 提示词</b> 四项且可修改；生成后卡片为 <b>图片 + 名称 / 别名 / 集数</b>。</li>
+    <li><b>添加 / 编辑 / 删除融入卡片</b>：网格里的「+」卡片添加资产（弹面板填四项）；点开卡片编辑；鼠标悬停卡片右上角出现 × 删除。顶部「新增 / 编辑 / 删除资产」按钮和左侧名称列表随之移除。</li>
+  </ul>
+</div>
+
+<!-- ================= 2 ================= -->
+<h2>2. 现状梳理</h2>
+<div class="shot-row">
+  <figure>
+    <img class="shot" src="current-step5.png" alt="提示词提取面板">
+    <figcaption>现状 · 步骤5「提示词提取」：三标签页文本编辑，批量提取 / 保存 / 导入 TXT / 编辑模板</figcaption>
+  </figure>
+  <figure>
+    <img class="shot" src="current-step6-annotated.png" alt="资产生成页标注">
+    <figcaption>现状 · 步骤6「资产生成」+ 需求标注：卡片下方补 名称 / 别名 / 集数</figcaption>
+  </figure>
+</div>
+
+<h3>2.1 数据文件（本次改版全部保留不变）</h3>
+<table>
+  <tr><th>文件（项目目录下）</th><th>作用</th><th>改版后</th></tr>
+  <tr><td><code>assets/character_prompts.txt</code><br><code>assets/scene_prompts.txt</code><br><code>assets/prop_prompts.txt</code></td>
+      <td>三类资产描述，行格式 <code>名称|别名|出场集数|提示词</code></td>
+      <td class="ok">格式不变，仍由提取 worker 产出</td></tr>
+  <tr><td><code>assets/asset_descriptions.txt</code></td><td>三类合并描述（镜头脚本 / 分镜步骤读取）</td><td class="ok">继续生成</td></tr>
+  <tr><td><code>assets/&lt;类别&gt;/&lt;名称&gt;.png</code></td><td>生成的资产图片</td><td class="ok">不变</td></tr>
+  <tr><td><code>assets/selections.json</code></td><td>每个资产的选中状态 / 生成状态 / 图片路径</td><td class="ok">不变，改为记录卡片选中态</td></tr>
+  <tr><td><code>assets/candidates.json</code></td><td>候选资产元信息</td><td class="ok">不变</td></tr>
+</table>
+<div class="note">旧项目数据完全兼容：已提取过提示词的项目打开后直接以卡片展示，不会重复提取。</div>
+
+<h3>2.2 当前界面结构（将被移除的部分）</h3>
+<ul>
+  <li>侧边栏「提示词提取」步骤页（<code>steps/step_05_asset_prompt.py</code>）——功能迁移后删除。</li>
+  <li>资产生成页左侧「资产名称」勾选列表（QListWidget）——由卡片直接承载。</li>
+  <li>顶部「新增资产 / 编辑资产 / 删除资产」按钮——融入卡片交互。</li>
+</ul>
+
+<!-- ================= 3 ================= -->
+<h2>3. 新界面设计（卡片 mockup）</h2>
+
+<h3>3.1 页面整体</h3>
+<div class="mock-page">
+  <div class="mock-toolbar">
+    <span class="mock-btn primary">▶ 生成选中角色</span>
+    <span class="mock-btn">🔄 刷新</span>
+    <span class="mock-btn">🔁 重新提取</span>
+    <span class="mock-btn">智能导入图片</span>
+    <span class="mock-btn">导入自定义 TXT</span>
+    <span class="mock-btn">编辑提取模板</span>
+    <span class="mock-btn">全选</span>
+    <span class="mock-btn">取消全选</span>
+    <span class="mock-btn del">新增资产</span>
+    <span class="mock-btn del">编辑资产</span>
+    <span class="mock-btn del">删除资产</span>
+  </div>
+  <div class="mock-grid">
+
+    <div>
+      <div class="acard add">
+        <div class="plus">＋</div>
+        <div>添加资产</div>
+      </div>
+      <div class="caption">① 添加卡片：点击弹面板填四项</div>
+    </div>
+
+    <div>
+      <div class="acard">
+        <div class="img dashed"><div class="plus">＋</div><div>点击生成 / 上传</div></div>
+        <div class="meta">
+          <div class="name">孙大勇</div>
+          <div class="row">别名：大勇、孙哥</div>
+          <div class="row">集数：01,02,03</div>
+          <div class="prompt">提示词：50岁中国男人，花白短发，深蓝色夹克，老实憨厚…</div>
+        </div>
+      </div>
+      <div class="caption">② 未生成卡片：四项信息，双击改</div>
+    </div>
+
+    <div>
+      <div class="acard selected">
+        <div class="sel-badge">✓</div>
+        <div class="img dashed"><div class="plus">＋</div><div>点击生成 / 上传</div></div>
+        <div class="meta">
+          <div class="name">王秀兰</div>
+          <div class="row">别名：秀兰、妈</div>
+          <div class="row">集数：01,04</div>
+          <div class="prompt">提示词：48岁中国妇女，齐耳短发，碎花衬衫…</div>
+        </div>
+      </div>
+      <div class="caption">③ 选中态：单击信息区切换</div>
+    </div>
+
+    <div>
+      <div class="acard">
+        <div class="del-x">×</div>
+        <div class="img"><img src="sample-generated.png" alt="已生成示例"></div>
+        <div class="meta">
+          <div class="name">孙大勇（青年）</div>
+          <div class="row">别名：大勇</div>
+          <div class="row">集数：02,05</div>
+        </div>
+      </div>
+      <div class="caption">④ 已生成卡片：图 + 三项（红×悬停才显示）</div>
+    </div>
+
+    <div>
+      <div class="acard">
+        <div class="img"><div style="font-size:24px">🔵</div><div>生成中…</div></div>
+        <div class="meta">
+          <div class="name">李建国</div>
+          <div class="row">别名：建国</div>
+          <div class="row">集数：03</div>
+        </div>
+      </div>
+      <div class="caption">⑤ 生成中</div>
+    </div>
+
+    <div>
+      <div class="acard failed">
+        <div class="img"><div style="font-size:24px">❌</div><div>生成失败</div></div>
+        <div class="meta">
+          <div class="name">赵铁柱</div>
+          <div class="row">别名：铁柱</div>
+          <div class="row">集数：06,07</div>
+        </div>
+      </div>
+      <div class="caption">⑥ 失败：红框，可重新生成</div>
+    </div>
+
+  </div>
+</div>
+<p class="muted">卡片数据来自提示词文件 ∪ 图片目录：描述里有但还没图的 → 未生成卡片；有图但描述里没有的（如直接导入的图片）→ 只有名称的已生成卡片。</p>
+
+<h3>3.2 添加资产流程</h3>
+<div class="flow">
+  <span class="node">点击「＋添加资产」卡片</span><span class="arrow">→</span>
+  <span class="node">弹出编辑面板（名称 / 别名 / 集数 / 提示词）</span><span class="arrow">→</span>
+  <span class="node">保存后网格出现未生成卡片</span><span class="arrow">→</span>
+  <span class="node">点图片区选「AI 生成」或「上传图片」</span>
+</div>
+<p class="muted">名称为空或提示词为空时「AI 生成」不可用（菜单置灰并提示原因）。名称即图片文件名。</p>
+
+<h3>3.3 编辑资产流程</h3>
+<div class="flow">
+  <span class="node">双击任意卡片</span><span class="arrow">→</span>
+  <span class="node">同一编辑面板，带入现有四项</span><span class="arrow">→</span>
+  <span class="node">保存（改名会同步改图片文件名与提示词行）</span>
+</div>
+
+<!-- ================= 4 ================= -->
+<h2>4. 交互规格表</h2>
+<table>
+  <tr><th>操作</th><th>目标</th><th>行为</th></tr>
+  <tr><td>单击</td><td>卡片信息区（图以外）</td><td>选中 / 取消选中，高亮边框 + 左上角 ✓，状态写入 <code>selections.json</code></td></tr>
+  <tr><td>双击</td><td>任意卡片</td><td>打开编辑面板（名称 / 别名 / 集数 / 提示词）</td></tr>
+  <tr><td>单击</td><td>未生成卡片图片区</td><td>弹菜单：<b>AI 生成</b>（名称+提示词必填，缺失则置灰）/ <b>上传本地图片</b></td></tr>
+  <tr><td>单击</td><td>已生成卡片图片区</td><td>弹菜单：<b>查看大图</b> / <b>AI 重新生成</b>（按当前提示词）/ <b>替换本地图片</b></td></tr>
+  <tr><td>悬停</td><td>任意卡片</td><td>右上角浮现 ×，点击弹确认（"将删除提示词、项目内图片和选择状态"）后删除</td></tr>
+  <tr><td>点击</td><td>「＋添加资产」卡片</td><td>弹编辑面板（空表单），保存后出现在网格中</td></tr>
+  <tr><td>点击</td><td>▶ 生成选中</td><td>批量生成所有选中且未完成的卡片（沿用现有 worker 与队列）</td></tr>
+  <tr><td>点击</td><td>🔁 重新提取</td><td>确认后后台重跑三类 LLM 提取（覆盖提示词文本，不动已生成图片）</td></tr>
+</table>
+<p class="muted">移除：左侧资产名称列表、顶部 新增 / 编辑 / 删除资产 按钮。保留：全选 / 取消全选 / 刷新 / 智能导入图片 / 导入自定义 TXT / 编辑提取模板。</p>
+
+<!-- ================= 5 ================= -->
+<h2>5. 自动提取设计</h2>
+<div class="flow">
+  <span class="node">创建 / 打开项目</span><span class="arrow">→</span>
+  <span class="node">检查：有剧本 且 三类提示词文件都不存在</span><span class="arrow">→</span>
+  <span class="node">后台顺序提取：角色 → 场景 → 道具</span><span class="arrow">→</span>
+  <span class="node">每类完成，对应标签页卡片即时出现</span>
+</div>
+<ul>
+  <li><b>不重复提取</b>：只要任一提示词文件已存在，就不自动跑；想重跑用「🔁 重新提取」。</li>
+  <li><b>失败保护</b>（沿用现有机制）：提取先写 <code>.extracting</code> 临时文件，成功才替换正式文件；失败保留已有人工校对的文本，并写 <code>*_extraction_failed.txt</code> 供排查。</li>
+  <li><b>可停止</b>：提取走统一的运行态（进度条 + 停止按钮）；切换项目自动取消未完成的提取队列。</li>
+  <li><b>互斥</b>：提取进行中禁止生成图片；生成进行中禁止重新提取。</li>
+  <li><b>进度可见</b>：资产生成页日志区实时显示提取进度与结果数量。</li>
+</ul>
+
+<!-- ================= 6 ================= -->
+<h2>6. 文件级改动清单</h2>
+<table>
+  <tr><th>文件</th><th>改动</th></tr>
+  <tr><td><code>core/step_registry.py</code></td>
+      <td>删除 <code>asset_prompt</code> 步骤定义；<code>asset</code> 依赖改为 <code>("project",)</code>；清理排除集合</td></tr>
+  <tr><td><code>main_window.py</code></td>
+      <td>删除 Step05 的 import / 实例 / 两条信号接线；侧边栏状态同步移除 <code>asset_prompt</code> 键</td></tr>
+  <tr><td><code>steps/step_06_asset_generation.py</code></td>
+      <td><b>主要工作量</b>：① AssetCard 重构（状态 / 选中 / 悬停× / 图片区菜单 / 双击编辑）；② CategoryTab 去掉左侧列表，网格数据源改为 提示词文件 ∪ 图片目录，首格固定「+」卡片；③ 新增自动提取队列（复用 <code>workers.AssetPromptWorker</code>）；④ 迁入 TXT 导入与模板编辑功能</td></tr>
+  <tr><td><code>steps/step_05_asset_prompt.py</code></td>
+      <td>功能迁出后<b>删除文件</b>（TXT 分析 worker、导入提交、模板编辑对话框、<code>parse_custom_asset_text</code> 等移入 step_06）</td></tr>
+  <tr><td><code>steps/step_07~10</code>、<code>step_06*</code></td>
+      <td>界面标题步骤号重排：6→5、7→6、8→7、9→8、10→9（纯显示）</td></tr>
+  <tr><td><code>tests/test_asset_worker_safety.py</code></td>
+      <td>两个 Step05 批量提取用例改测 Step06 提取队列（完成只通知一次 / 取消后不启动下一类）</td></tr>
+  <tr><td><code>tests/test_media_prompt_storyboard.py</code></td>
+      <td>更新 <code>parse_custom_asset_text</code> 与 TXT 导入流程的引用路径</td></tr>
+</table>
+<p class="muted">不改：workers.py 的提取/生成 worker、core/asset_catalog.py、core/asset_image_import.py、agents/ 下所有生成逻辑 —— 数据层与生成层全部复用。</p>
+
+<!-- ================= 7 ================= -->
+<h2>7. 测试与验证</h2>
+<h3>7.1 自动化</h3>
+<ul>
+  <li>全量 <code>pytest</code>：现有 122 个用例保持全绿，另更新上述 2 个测试文件。</li>
+</ul>
+<h3>7.2 手动冒烟清单</h3>
+<ol>
+  <li>新建项目 → 自动提取开始（日志有进度）→ 三类卡片陆续出现（未生成态、四项信息）</li>
+  <li>单击卡片 → 选中高亮；再单击 → 取消；全选 / 取消全选生效</li>
+  <li>生成选中 → 卡片转「生成中」→ 成功后变图片卡片（三项信息）</li>
+  <li>双击卡片 → 编辑面板改名称/提示词 → 保存后卡片与文件同步</li>
+  <li>未生成卡片点图片区 → 菜单选 AI 生成 / 上传图片，各验证一次</li>
+  <li>已生成卡片点图片区 → 查看大图 / 重新生成 / 替换图片</li>
+  <li>悬停卡片 → ×删除 → 确认后卡片、提示词行、图片、选择状态均移除</li>
+  <li>「+」卡片添加新资产 → 填四项保存 → 出现未生成卡片</li>
+  <li>重新提取 → 确认后覆盖提示词文本、图片保留</li>
+  <li>导入自定义 TXT / 编辑提取模板 在资产生成页可用</li>
+  <li>旧项目（已有提取结果）打开 → 不重复提取，直接出卡片</li>
+</ol>
+<h3>7.3 发布后</h3>
+<ul><li>全部通过后重新执行 <code>python build.py</code> 出新的便携 exe / zip 分发。</li></ul>
+
+<!-- ================= 8 ================= -->
+<h2>8. 风险与边界</h2>
+<table>
+  <tr><th>风险 / 边界</th><th>应对</th></tr>
+  <tr><td>自动提取消耗 LLM 额度（每个新项目 3 次调用）</td><td>只在"三类文件全缺"时触发一次；已有结果绝不重跑</td></tr>
+  <tr><td>创建项目后马上切走 / 关闭程序</td><td>提取在后台线程，切换项目自动取消；已完成的分类结果已落盘，下次打开直接展示</td></tr>
+  <tr><td>提取失败（LLM 挂 / 格式错）</td><td>不覆盖已有文本；日志区给出原因；可手动「重新提取」或「导入自定义 TXT」兜底</td></tr>
+  <tr><td>卡片很多时网格性能</td><td>缩略图按需加载（QPixmap 缩放后缓存），短剧项目资产量级（几十张）无压力</td></tr>
+  <tr><td>删除 × 误触</td><td>确认弹窗兜底；删除范围明示（提示词行 + 图片 + 选择状态）</td></tr>
+</table>
+
+<div class="note" style="margin-top:32px">
+  <b>待确认点：</b>本报告审阅通过后即按第 6 章实施；如有要调整的地方（卡片布局、菜单项、按钮取舍），直接在报告上批注或口述即可。
+</div>
+
+</div>
+</body>
+</html>

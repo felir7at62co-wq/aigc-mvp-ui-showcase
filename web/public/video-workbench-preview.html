@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>视频生成工作台原型</title>
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --panel: rgba(255, 255, 255, .9);
+      --line: rgba(15, 23, 42, .1);
+      --line-blue: rgba(37, 99, 235, .25);
+      --text: #0f172a;
+      --muted: #64748b;
+      --blue: #2563eb;
+      --blue-soft: rgba(37, 99, 235, .1);
+      --green: #16a34a;
+      --orange: #d97706;
+      --purple: #7c3aed;
+      --radius: 14px;
+      --font: "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-width: 1280px; height: 100%; margin: 0; }
+    body {
+      color: var(--text);
+      font-family: var(--font);
+      background:
+        radial-gradient(760px 420px at 7% -12%, rgba(37, 99, 235, .12), transparent 62%),
+        radial-gradient(720px 420px at 100% 5%, rgba(124, 58, 237, .08), transparent 58%),
+        var(--bg);
+    }
+
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+
+    .app { display: grid; grid-template-rows: 58px minmax(0, 1fr) 32px; height: 100vh; }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 22px; border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, .72); backdrop-filter: blur(18px);
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: .02em; }
+    .brand-mark {
+      display: grid; place-items: center; width: 30px; height: 30px; color: #fff;
+      border-radius: 9px; background: linear-gradient(135deg, #2563eb, #7c3aed);
+      box-shadow: 0 6px 16px rgba(37, 99, 235, .26);
+    }
+    .topbar-right { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; }
+    .project-select { min-width: 180px; padding: 7px 12px; color: var(--text); border: 1px solid var(--line); border-radius: 9px; background: #fff; }
+    .status-dot { color: var(--green); font-size: 18px; line-height: 0; }
+
+    /* 四列：主流程｜分集｜分集剧本｜生产区 */
+    .body {
+      display: grid;
+      grid-template-columns: 156px 188px minmax(270px, .86fr) minmax(700px, 2.35fr);
+      min-height: 0;
+      overflow: hidden;
+    }
+    .main-nav, .episode-nav, .script-column {
+      min-height: 0; border-right: 1px solid var(--line);
+      background: rgba(255, 255, 255, .58);
+    }
+    .main-nav { display: flex; flex-direction: column; gap: 8px; padding: 16px 11px; }
+    .nav-caption, .episode-caption { padding: 4px 8px 10px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+    .nav-item {
+      display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: 8px;
+      width: 100%; padding: 10px 8px; color: var(--muted); text-align: left;
+      border: 1px solid transparent; border-radius: 10px; background: transparent;
+    }
+    .nav-item:hover { background: rgba(255, 255, 255, .8); }
+    .nav-item.active { color: var(--blue); border-color: var(--line-blue); background: var(--blue-soft); font-weight: 700; }
+    .nav-icon { display: grid; place-items: center; width: 27px; height: 27px; color: currentColor; border-radius: 8px; background: rgba(100, 116, 139, .1); font-size: 14px; }
+    .nav-item.active .nav-icon { background: #fff; box-shadow: 0 3px 10px rgba(37, 99, 235, .14); }
+    .nav-label { font-size: 12px; }
+    .nav-spacer { flex: 1; }
+    .nav-help { padding: 12px 9px; color: var(--muted); font-size: 10px; line-height: 1.65; border-top: 1px solid var(--line); }
+
+    .episode-nav { display: flex; flex-direction: column; padding: 16px 10px; }
+    .episode-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 7px 12px; }
+    .episode-head strong { font-size: 14px; }
+    .episode-count { color: var(--muted); font-size: 11px; }
+    .episode-list { min-height: 0; overflow-y: auto; padding: 0 1px 14px; }
+    .episode {
+      display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 7px;
+      width: 100%; padding: 10px 7px; margin-bottom: 6px; color: var(--text); text-align: left;
+      border: 1px solid transparent; border-radius: 11px; background: transparent;
+    }
+    .episode:hover { background: rgba(255, 255, 255, .88); }
+    .episode.active { border-color: var(--line-blue); background: #fff; box-shadow: 0 5px 16px rgba(15, 23, 42, .07); }
+    .episode-num { display: grid; place-items: center; width: 31px; height: 31px; color: var(--muted); border-radius: 9px; background: rgba(100, 116, 139, .1); font-size: 12px; font-weight: 800; }
+    .episode.active .episode-num { color: var(--blue); background: var(--blue-soft); }
+    .episode-title { display: block; overflow: hidden; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    .episode-meta { display: block; margin-top: 3px; color: var(--muted); font-size: 9px; }
+    .episode-status { width: 7px; height: 7px; border-radius: 50%; background: #cbd5e1; }
+    .episode-status.done { background: var(--green); }
+    .episode-status.progress { background: var(--orange); }
+    .episode-status.wait { background: #94a3b8; }
+
+    /* 分集剧本与分集同高、同一纵向边界 */
+    .script-column { display: flex; flex-direction: column; min-width: 0; background: rgba(255, 255, 255, .72); }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 48px; padding: 0 14px; border-bottom: 1px solid var(--line); }
+    .panel-head h2 { margin: 0; font-size: 14px; }
+    .panel-head .hint { color: var(--muted); font-size: 10px; }
+    .script-tools { display: flex; align-items: center; gap: 5px; padding: 9px 11px; border-bottom: 1px solid var(--line); }
+    .script-tab { padding: 5px 6px; color: var(--muted); border: 0; border-radius: 6px; background: transparent; font-size: 10px; white-space: nowrap; }
+    .script-tab.active { color: var(--blue); background: var(--blue-soft); font-weight: 700; }
+    .script-search { width: 86px; min-width: 0; padding: 5px 6px; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; background: #fff; font-size: 10px; }
+    .script-content { min-height: 0; padding: 14px 12px; overflow-y: auto; }
+    .script-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+    .script-heading strong { font-size: 13px; line-height: 1.4; }
+    .script-heading span { color: var(--muted); font-size: 10px; white-space: nowrap; }
+    .script-block { padding: 11px 10px 11px 12px; margin-bottom: 9px; border-left: 3px solid transparent; border-radius: 0 9px 9px 0; background: rgba(248, 250, 252, .86); }
+    .script-block:hover { background: #fff; }
+    .script-block.active { border-left-color: var(--blue); background: var(--blue-soft); }
+    .script-block-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
+    .script-shot { color: var(--blue); font-size: 10px; font-weight: 800; }
+    .script-location { color: var(--muted); font-size: 9px; text-align: right; }
+    .script-copy { margin: 0 0 5px; color: #475569; font-size: 10px; line-height: 1.7; }
+    .script-copy:last-child { margin-bottom: 0; }
+    .script-copy em { color: var(--text); font-style: normal; font-weight: 700; }
+    .script-edit-note { padding: 9px 9px; margin-top: 2px; color: var(--muted); border: 1px dashed rgba(100, 116, 139, .32); border-radius: 8px; font-size: 9px; line-height: 1.6; }
+
+    /* 生产区：上方镜头脚本｜资产匹配｜视频预览，下方视频轨道 */
+    .workspace { display: grid; grid-template-rows: auto minmax(310px, 1fr) 234px; min-width: 0; min-height: 0; padding: 18px 20px 16px; gap: 14px; overflow: hidden; }
+    .workspace-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .workspace-title { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+    .workspace-title h1 { margin: 0; font-size: 20px; white-space: nowrap; }
+    .workspace-title span { overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .head-actions, .timeline-head-actions, .timeline-actions { display: flex; align-items: center; gap: 8px; }
+    .btn { padding: 8px 12px; color: var(--text); border: 1px solid var(--line); border-radius: 9px; background: #fff; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .btn:hover { border-color: var(--line-blue); background: #f8fbff; }
+    .btn.primary { color: #fff; border-color: var(--blue); background: var(--blue); }
+    .btn.primary:hover { background: #1d4ed8; }
+
+    .upper { display: grid; grid-template-columns: minmax(245px, .92fr) minmax(220px, .82fr) minmax(330px, 1.24fr); min-height: 0; gap: 14px; }
+    .panel { display: flex; flex-direction: column; min-width: 0; min-height: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); box-shadow: 0 8px 26px rgba(15, 23, 42, .055); overflow: hidden; }
+    .panel-body { min-height: 0; padding: 14px; overflow: auto; }
+
+    .shot-panel .panel-body { padding: 0; }
+    .shot-list { display: flex; flex-direction: column; overflow: auto; }
+    .shot-row { padding: 12px 13px; border: 0; border-bottom: 1px solid var(--line); background: transparent; text-align: left; }
+    .shot-row:hover { background: rgba(37, 99, 235, .04); }
+    .shot-row.active { background: var(--blue-soft); box-shadow: inset 3px 0 0 var(--blue); }
+    .shot-row-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .shot-row-title { color: var(--blue); font-size: 11px; font-weight: 800; }
+    .shot-row-duration { color: var(--muted); font-size: 9px; }
+    .shot-row-text { display: -webkit-box; margin-top: 7px; overflow: hidden; color: var(--text); -webkit-box-orient: vertical; -webkit-line-clamp: 3; font-size: 10px; line-height: 1.6; }
+    .shot-tag { display: inline-block; margin-top: 7px; padding: 2px 6px; color: var(--purple); border-radius: 4px; background: rgba(124, 58, 237, .09); font-size: 9px; }
+
+    .asset-panel .panel-body { display: grid; grid-template-columns: 1fr 1fr; align-content: start; gap: 9px; }
+    .asset-summary { grid-column: 1 / -1; padding: 8px 9px; color: var(--green); border-radius: 8px; background: rgba(22, 163, 74, .08); font-size: 10px; font-weight: 700; }
+    .asset-card { padding: 6px; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
+    .asset-thumb { display: grid; place-items: center; height: 64px; margin-bottom: 6px; color: #fff; border-radius: 7px; font-size: 20px; font-weight: 800; }
+    .asset-thumb.character { background: linear-gradient(135deg, #f59e0b, #ef4444); }
+    .asset-thumb.scene { background: linear-gradient(135deg, #0891b2, #2563eb); }
+    .asset-thumb.prop { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
+    .asset-name { display: block; overflow: hidden; font-size: 10px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    .asset-type { margin-top: 3px; color: var(--muted); font-size: 9px; }
+    .asset-check { float: right; color: var(--green); font-size: 11px; }
+
+    .video-panel .panel-body { display: flex; flex-direction: column; gap: 10px; }
+    .video-frame { position: relative; display: grid; place-items: center; flex: 1; min-height: 190px; border-radius: 11px; overflow: hidden; color: #dbeafe; background: linear-gradient(135deg, rgba(37, 99, 235, .42), rgba(124, 58, 237, .23)), radial-gradient(circle at 30% 28%, rgba(255,255,255,.25), transparent 26%), #0f172a; }
+    .video-frame.fullscreen-demo { position: fixed; inset: 72px 24px 42px; z-index: 20; min-height: 0; border-radius: 16px; box-shadow: 0 24px 80px rgba(15, 23, 42, .35); }
+    .video-frame::before { content: "镜头 001  ·  已生成"; position: absolute; left: 12px; bottom: 10px; padding: 4px 7px; color: rgba(255,255,255,.82); border-radius: 5px; background: rgba(15, 23, 42, .46); font-size: 9px; }
+    .play { display: grid; place-items: center; width: 54px; height: 54px; color: #fff; border: 1px solid rgba(255,255,255,.45); border-radius: 50%; background: rgba(15, 23, 42, .45); font-size: 22px; transition: transform .15s, background .15s; }
+    .play:hover { transform: scale(1.06); background: rgba(37, 99, 235, .75); }
+    .video-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 7px; color: var(--muted); font-size: 9px; }
+    .video-toolbar .video-state { color: var(--green); }
+    .video-toolbar button { padding: 4px 6px; color: var(--muted); border: 0; background: transparent; }
+    .video-toolbar button:hover { color: var(--blue); }
+
+    .timeline-panel { min-height: 0; }
+    .timeline-head-actions span { color: var(--green); font-size: 10px; }
+    .timeline-body { min-height: 0; padding: 12px 14px 13px; }
+    .timeline-ruler { position: relative; height: 22px; margin-left: 52px; border-bottom: 1px solid var(--line); background: repeating-linear-gradient(90deg, transparent 0 59px, rgba(100,116,139,.16) 60px); }
+    .ruler-label { position: absolute; top: 3px; color: var(--muted); font-size: 9px; transform: translateX(-50%); }
+    .timeline-row { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px; align-items: center; min-height: 58px; }
+    .track-name { color: var(--muted); font-size: 10px; font-weight: 700; text-align: right; }
+    .track { position: relative; display: flex; align-items: stretch; gap: 4px; height: 50px; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: rgba(241, 245, 249, .72); }
+    .segment { position: relative; display: flex; flex-direction: column; justify-content: center; min-width: 82px; padding: 0 9px; color: #1e3a8a; border: 1px solid rgba(37, 99, 235, .35); border-radius: 6px; background: linear-gradient(135deg, rgba(96, 165, 250, .55), rgba(129, 140, 248, .42)); text-align: left; overflow: hidden; }
+    .segment:nth-child(3) { color: #115e59; border-color: rgba(13, 148, 136, .32); background: linear-gradient(135deg, rgba(45, 212, 191, .45), rgba(56, 189, 248, .38)); }
+    .segment:nth-child(4) { color: #713f12; border-color: rgba(217, 119, 6, .35); background: linear-gradient(135deg, rgba(251, 191, 36, .48), rgba(251, 146, 60, .38)); }
+    .segment.active { box-shadow: 0 0 0 2px var(--blue), 0 4px 12px rgba(37, 99, 235, .18); }
+    .segment-id { font-size: 10px; font-weight: 800; }
+    .segment-info { margin-top: 3px; opacity: .76; font-size: 9px; }
+    .playhead { position: absolute; top: -4px; bottom: -4px; left: 29%; z-index: 2; width: 2px; background: #ef4444; box-shadow: 0 0 0 2px rgba(239, 68, 68, .1); pointer-events: none; }
+    .playhead::before { content: ""; position: absolute; top: 0; left: -4px; width: 10px; height: 10px; border-radius: 50%; background: #ef4444; }
+    .timeline-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+    .timeline-note { color: var(--muted); font-size: 9px; }
+
+    .statusbar { display: flex; align-items: center; gap: 20px; padding: 0 20px; color: var(--muted); border-top: 1px solid var(--line); background: rgba(255,255,255,.62); font-size: 10px; }
+    .statusbar .ready { margin-left: auto; color: var(--green); }
+
+    @media (max-width: 1500px) {
+      html, body { min-width: 1180px; }
+      .body { grid-template-columns: 142px 170px minmax(245px, .8fr) minmax(640px, 2.2fr); }
+      .workspace { padding-right: 15px; padding-left: 15px; }
+      .upper { grid-template-columns: minmax(220px, .9fr) minmax(195px, .78fr) minmax(290px, 1.2fr); }
+      .workspace-title span { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">✦</span><span>AIGC 短剧生产工作台</span></div>
+      <div class="topbar-right">
+        <span>当前项目</span>
+        <select class="project-select" aria-label="当前项目"><option>春夜旧梦</option><option>未命名短剧</option></select>
+        <span class="status-dot">●</span><span>已保存</span>
+      </div>
+    </header>
+
+    <div class="body">
+      <nav class="main-nav" aria-label="主流程">
+        <div class="nav-caption">制作流程</div>
+        <button class="nav-item"><span class="nav-icon">＋</span><span class="nav-label">创建项目</span></button>
+        <button class="nav-item"><span class="nav-icon">◇</span><span class="nav-label">资产生成</span></button>
+        <button class="nav-item active"><span class="nav-icon">▶</span><span class="nav-label">视频生成</span></button>
+        <div class="nav-spacer"></div>
+        <button class="nav-item"><span class="nav-icon">⚙</span><span class="nav-label">设置</span></button>
+        <div class="nav-help">创建项目后直接进入资产生成。镜头脚本确认并完成资产匹配后，即可生成镜头视频。</div>
+      </nav>
+
+      <aside class="episode-nav" aria-label="分集选择">
+        <div class="episode-head"><strong>分集</strong><span class="episode-count">24 集</span></div>
+        <div class="episode-list" id="episodeList">
+          <button class="episode active" data-episode="01"><span class="episode-num">01</span><span><span class="episode-title">雨夜相逢</span><span class="episode-meta">8 镜头 · 4 已完成</span></span><i class="episode-status progress"></i></button>
+          <button class="episode" data-episode="02"><span class="episode-num">02</span><span><span class="episode-title">旧屋来信</span><span class="episode-meta">9 镜头 · 待生成</span></span><i class="episode-status wait"></i></button>
+          <button class="episode" data-episode="03"><span class="episode-num">03</span><span><span class="episode-title">不速之客</span><span class="episode-meta">7 镜头 · 已完成</span></span><i class="episode-status done"></i></button>
+          <button class="episode" data-episode="04"><span class="episode-num">04</span><span><span class="episode-title">暗中调查</span><span class="episode-meta">10 镜头 · 待确认</span></span><i class="episode-status progress"></i></button>
+          <button class="episode" data-episode="05"><span class="episode-num">05</span><span><span class="episode-title">宴席之前</span><span class="episode-meta">8 镜头 · 待生成</span></span><i class="episode-status wait"></i></button>
+          <button class="episode" data-episode="06"><span class="episode-num">06</span><span><span class="episode-title">一纸婚书</span><span class="episode-meta">11 镜头 · 待生成</span></span><i class="episode-status wait"></i></button>
+          <button class="episode" data-episode="07"><span class="episode-num">07</span><span><span class="episode-title">风起之前</span><span class="episode-meta">8 镜头 · 已完成</span></span><i class="episode-status done"></i></button>
+          <button class="episode" data-episode="08"><span class="episode-num">08</span><span><span class="episode-title">深巷追踪</span><span class="episode-meta">9 镜头 · 待生成</span></span><i class="episode-status wait"></i></button>
+          <button class="episode" data-episode="09"><span class="episode-num">09</span><span><span class="episode-title">局中局</span><span class="episode-meta">12 镜头 · 待确认</span></span><i class="episode-status progress"></i></button>
+          <button class="episode" data-episode="10"><span class="episode-num">10</span><span><span class="episode-title">真相浮出</span><span class="episode-meta">8 镜头 · 待生成</span></span><i class="episode-status wait"></i></button>
+          <button class="episode" data-episode="11"><span class="episode-num">11</span><span><span class="episode-title">午夜电话</span><span class="episode-meta">7 镜头 · 待生成</span></span><i class="episode-status wait"></i></button>
+          <button class="episode" data-episode="12"><span class="episode-num">12</span><span><span class="episode-title">终局前夜</span><span class="episode-meta">10 镜头 · 待生成</span></span><i class="episode-status wait"></i></button>
+        </div>
+      </aside>
+
+      <section class="script-column" aria-label="分集剧本">
+        <div class="panel-head"><h2>分集剧本</h2><span class="hint">自动保存</span></div>
+        <div class="script-tools"><button class="script-tab active">整集剧本</button><button class="script-tab">镜头列表</button><input class="script-search" placeholder="查找台词" aria-label="查找台词" /></div>
+        <div class="script-content">
+          <div class="script-heading"><strong id="scriptHeading">第 01 集 · 雨夜相逢</strong><span>共 8 镜头</span></div>
+          <article class="script-block active" data-shot="1">
+            <div class="script-block-head"><span class="script-shot">镜头 001</span><span class="script-location">外 · 老街 · 夜</span></div>
+            <p class="script-copy"><em>画面：</em>暴雨中的老街灯火摇曳，沈砚撑伞快步穿过长巷，在巷口停住。</p>
+            <p class="script-copy"><em>动作：</em>他抬眼，看见檐下站着一个熟悉的身影。</p>
+          </article>
+          <article class="script-block" data-shot="2">
+            <div class="script-block-head"><span class="script-shot">镜头 002</span><span class="script-location">外 · 老街 · 夜</span></div>
+            <p class="script-copy"><em>画面：</em>伞面移开，林晚的脸从雨幕里显现，发梢挂着细小水珠。</p>
+            <p class="script-copy"><em>台词：</em>“你还是来了。”</p>
+          </article>
+          <article class="script-block" data-shot="3">
+            <div class="script-block-head"><span class="script-shot">镜头 003</span><span class="script-location">近景 · 双人</span></div>
+            <p class="script-copy"><em>画面：</em>沈砚没有回答，只将伞柄向她的方向递过去半寸。</p>
+            <p class="script-copy"><em>情绪：</em>克制、迟疑，雨声把沉默拉得很长。</p>
+          </article>
+          <div class="script-edit-note">先确认分集剧本，再逐镜头检查资产匹配。匹配无误后，可直接生成对应的镜头视频。</div>
+        </div>
+      </section>
+
+      <main class="workspace">
+        <div class="workspace-head">
+          <div class="workspace-title"><h1 id="episodeTitle">第 01 集 · 雨夜相逢</h1><span id="episodeSubTitle">剧本已确认 · 8 个镜头 · 竖屏 9:16</span></div>
+          <div class="head-actions"><button class="btn">导入 / 编辑剧本</button><button class="btn primary" id="generateBtn">▶ 生成选中镜头视频</button></div>
+        </div>
+
+        <div class="upper">
+          <section class="panel shot-panel">
+            <div class="panel-head"><h2>镜头脚本</h2><span class="hint">点击查看</span></div>
+            <div class="panel-body"><div class="shot-list">
+              <button class="shot-row active" data-shot="1"><div class="shot-row-top"><span class="shot-row-title">001 · 老街停步</span><span class="shot-row-duration">5 秒</span></div><span class="shot-row-text">暴雨中的老街灯火摇曳，沈砚撑伞快步穿过长巷，在巷口停住。</span><span class="shot-tag">中景 · 推镜</span></button>
+              <button class="shot-row" data-shot="2"><div class="shot-row-top"><span class="shot-row-title">002 · 雨中相逢</span><span class="shot-row-duration">5 秒</span></div><span class="shot-row-text">伞面移开，林晚的脸从雨幕里显现，发梢挂着细小水珠。</span><span class="shot-tag">近景 · 固定</span></button>
+              <button class="shot-row" data-shot="3"><div class="shot-row-top"><span class="shot-row-title">003 · 递伞</span><span class="shot-row-duration">4 秒</span></div><span class="shot-row-text">沈砚没有回答，只将伞柄向她的方向递过去半寸。</span><span class="shot-tag">双人 · 横移</span></button>
+              <button class="shot-row" data-shot="4"><div class="shot-row-top"><span class="shot-row-title">004 · 并肩</span><span class="shot-row-duration">4 秒</span></div><span class="shot-row-text">两人并肩走进雨幕，老街的灯光在身后逐渐模糊。</span><span class="shot-tag">远景 · 跟拍</span></button>
+            </div></div>
+          </section>
+
+          <section class="panel asset-panel">
+            <div class="panel-head"><h2>资产匹配</h2><span class="hint">当前镜头</span></div>
+            <div class="panel-body">
+              <div class="asset-summary">✓ 3 / 3 个资产已匹配</div>
+              <div class="asset-card"><div class="asset-thumb character">沈</div><span class="asset-check">✓</span><div class="asset-name">沈砚 · 常服</div><div class="asset-type">角色资产</div></div>
+              <div class="asset-card"><div class="asset-thumb character">林</div><span class="asset-check">✓</span><div class="asset-name">林晚 · 雨夜造型</div><div class="asset-type">角色资产</div></div>
+              <div class="asset-card"><div class="asset-thumb scene">街</div><span class="asset-check">✓</span><div class="asset-name">老街巷口</div><div class="asset-type">场景资产</div></div>
+              <div class="asset-card"><div class="asset-thumb prop">伞</div><span class="asset-check">✓</span><div class="asset-name">黑色长柄伞</div><div class="asset-type">道具资产</div></div>
+            </div>
+          </section>
+
+          <section class="panel video-panel">
+            <div class="panel-head"><h2>视频预览</h2><span class="hint">当前镜头 001</span></div>
+            <div class="panel-body">
+              <div class="video-frame"><button class="play" id="playBtn" aria-label="播放预览">▶</button></div>
+              <div class="video-toolbar"><span class="video-state" id="videoState">● 已生成 · 00:05</span><span>脚本 + 资产 → 镜头视频</span><button id="fullscreenBtn">全屏</button></div>
+            </div>
+          </section>
+        </div>
+
+        <section class="panel timeline-panel">
+          <div class="panel-head"><h2>视频轨道 · 剪辑拼装</h2><div class="timeline-head-actions"><span>● 时间线已保存</span><button class="btn">初始化时间线</button></div></div>
+          <div class="timeline-body">
+            <div class="timeline-ruler"><span class="ruler-label" style="left:0%">00:00</span><span class="ruler-label" style="left:25%">00:05</span><span class="ruler-label" style="left:50%">00:10</span><span class="ruler-label" style="left:75%">00:15</span><span class="ruler-label" style="left:100%">00:20</span></div>
+            <div class="timeline-row"><span class="track-name">视频</span><div class="track" id="timelineTrack"><div class="playhead"></div><button class="segment active" data-shot="1" style="flex: 1.25"><span class="segment-id">镜头 001</span><span class="segment-info">5.0s · 已生成</span></button><button class="segment" data-shot="2" style="flex: 1.25"><span class="segment-id">镜头 002</span><span class="segment-info">5.0s · 已生成</span></button><button class="segment" data-shot="3" style="flex: 1"><span class="segment-id">镜头 003</span><span class="segment-info">4.0s · 待生成</span></button><button class="segment" data-shot="4" style="flex: 1"><span class="segment-id">镜头 004</span><span class="segment-info">4.0s · 待生成</span></button></div></div>
+            <div class="timeline-foot"><span class="timeline-note">镜头视频生成后进入轨道，可拖拽排序、裁剪并导出当前分集。</span><div class="timeline-actions"><button class="btn">保存时间线</button><button class="btn primary">导出剪映工程</button></div></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <footer class="statusbar"><span>项目：春夜旧梦</span><span id="footerEpisode">当前集：01</span><span>当前步骤：视频生成</span><span class="ready">● Web 工作台就绪</span></footer>
+  </div>
+
+  <script>
+    const episodeTitles = {
+      '01': '雨夜相逢', '02': '旧屋来信', '03': '不速之客', '04': '暗中调查',
+      '05': '宴席之前', '06': '一纸婚书', '07': '风起之前', '08': '深巷追踪',
+      '09': '局中局', '10': '真相浮出', '11': '午夜电话', '12': '终局前夜'
+    }
+
+    const episodeList = document.querySelector('#episodeList')
+    const episodeTitle = document.querySelector('#episodeTitle')
+    const episodeSubTitle = document.querySelector('#episodeSubTitle')
+    const scriptHeading = document.querySelector('#scriptHeading')
+    const footerEpisode = document.querySelector('#footerEpisode')
+    const videoState = document.querySelector('#videoState')
+    const playBtn = document.querySelector('#playBtn')
+
+    function selectEpisode(id) {
+      document.querySelectorAll('.episode').forEach((item) => item.classList.toggle('active', item.dataset.episode === id))
+      const title = episodeTitles[id] || '未命名分集'
+      episodeTitle.textContent = '第 ' + id + ' 集 · ' + title
+      scriptHeading.textContent = '第 ' + id + ' 集 · ' + title
+      episodeSubTitle.textContent = id === '01' ? '剧本已确认 · 8 个镜头 · 竖屏 9:16' : '剧本待确认 · 可继续编辑 · 竖屏 9:16'
+      footerEpisode.textContent = '当前集：' + id
+      videoState.textContent = id === '01' ? '● 已生成 · 00:05' : '● 待生成'
+    }
+
+    episodeList.addEventListener('click', (event) => {
+      const button = event.target.closest('.episode')
+      if (button) selectEpisode(button.dataset.episode)
+    })
+
+    function selectShot(shot) {
+      document.querySelectorAll('.script-block, .shot-row, .segment').forEach((item) => {
+        item.classList.toggle('active', item.dataset.shot === String(shot))
+      })
+      document.querySelector('.video-panel .hint').textContent = '当前镜头 ' + String(shot).padStart(3, '0')
+    }
+
+    document.querySelectorAll('.script-block, .shot-row, .segment').forEach((item) => {
+      item.addEventListener('click', () => selectShot(item.dataset.shot))
+    })
+
+    document.querySelectorAll('.script-tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.script-tab').forEach((item) => item.classList.remove('active'))
+        tab.classList.add('active')
+      })
+    })
+
+    playBtn.addEventListener('click', () => {
+      const playing = playBtn.dataset.playing === 'true'
+      playBtn.dataset.playing = String(!playing)
+      playBtn.textContent = playing ? '▶' : 'Ⅱ'
+      videoState.textContent = playing ? '● 已生成 · 00:05' : '▶ 播放中 · 00:05'
+    })
+
+    document.querySelector('#fullscreenBtn').addEventListener('click', () => {
+      document.querySelector('.video-frame').classList.toggle('fullscreen-demo')
+    })
+
+    document.querySelector('#generateBtn').addEventListener('click', (event) => {
+      const button = event.currentTarget
+      button.textContent = '生成任务已提交'
+      button.disabled = true
+      setTimeout(() => { button.textContent = '▶ 生成选中镜头视频'; button.disabled = false }, 1400)
+    })
+  </script>
+</body>
+</html>
